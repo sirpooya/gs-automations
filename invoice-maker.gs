@@ -22,8 +22,8 @@ function showInvoice() {
     {month: 'December', period_start: '30 December', period_end: '30 January'}
   ];
   
-  // Get month data from Payments sheet
-  var paymentsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Payments');
+  // Get month data from Invoices sheet
+  var paymentsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Invoices');
   var month = '';
   var periodStart = '';
   var periodEnd = '';
@@ -57,7 +57,7 @@ function showInvoice() {
           }
         }
         
-        // Write next month data to Payments sheet
+        // Write next month data to Invoices sheet
         var periodCol = paymentsHeaders.indexOf('Period');
         var statusCol = paymentsHeaders.indexOf('Status');
         
@@ -536,7 +536,7 @@ function sendInvoiceEmail(month) {
     }
     
     // Get month data
-    var paymentsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Payments');
+    var paymentsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Invoices');
     var periodStart = '';
     var periodEnd = '';
     

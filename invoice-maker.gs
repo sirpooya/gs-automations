@@ -106,13 +106,21 @@ function showInvoice() {
   // Build invoice text
   var invoiceText = 'قیمت هر سیت: فول (' + price_full + ') — دولوپر (' + price_dev + ') — کلب (' + price_collab + ')\n\n';
   
-  // Add team information
+  // Add team information (only if all counts are non-zero)
   for (var i = 0; i < team_name.length; i++) {
-    invoiceText += 'تیم ' + count_full[i] + ' : ' + team_name[i] + ' فول - ' + count_dev[i] + ' دولوپر - ' + count_collab[i] + ' کلب\n';
+    if (count_full[i] != 0 && count_dev[i] != 0 && count_collab[i] != 0) {
+      invoiceText += 'تیم ' + team_name[i] + ' : ' + count_full[i] + ' فول - ' + count_dev[i] + ' دولوپر - ' + count_collab[i] + ' کلب\n';
+    }
   }
   
   invoiceText += '\nکل سیت‌ها: ' + totalcount_full + ' فول - ' + totalcount_dev + ' دولوپر - ' + totalcount_collab + ' کلب\n\n';
-  invoiceText += 'مجموعا ' + cost_subtotal + ' بعلاوه ' + cost_prorated + ' هزینه سرشکن ماه قبل، مبلغ نهایی ' + cost_total;
+  
+  // Conditional cost printing
+  if (cost_prorated == 0) {
+    invoiceText += 'مجموعا مبلغ نهایی ' + cost_total;
+  } else if (cost_prorated > 0) {
+    invoiceText += 'مجموعا ' + cost_subtotal + ' بعلاوه ' + cost_prorated + ' هزینه سرشکن ماه قبل، مبلغ نهایی ' + cost_total;
+  }
   
   // Show modal dialog
   SpreadsheetApp.getUi().showModalDialog(

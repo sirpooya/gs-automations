@@ -219,7 +219,7 @@ function showInvoice() {
   
   // Conditional cost printing
   if (cost_prorated == 0) {
-    invoiceText += 'مجموعا مبلغ نهایی <span dir="ltr">$' + cost_total + '</span>';
+    invoiceText += 'مبلغ نهایی <span dir="ltr">$' + cost_total + '</span>';
   } else if (cost_prorated > 0) {
     invoiceText += 'مجموعا <span dir="ltr">$' + cost_subtotal + '</span> بعلاوه <span dir="ltr">$' + cost_prorated + '</span> هزینه سرشکن ماه قبل، مبلغ نهایی <span dir="ltr">$' + cost_total + '</span>';
   }
@@ -233,8 +233,24 @@ function showInvoice() {
     '</div>' +
     '<script>' +
     'function downloadReport(month) {' +
-    '  google.script.run.withSuccessHandler(function(url) {' +
-    '    if (url) { window.open(url, "_blank"); }' +
+    '  google.script.run.withSuccessHandler(function(result) {' +
+    '    if (result && result.data) {' +
+    '      var byteCharacters = atob(result.data);' +
+    '      var byteNumbers = new Array(byteCharacters.length);' +
+    '      for (var i = 0; i < byteCharacters.length; i++) {' +
+    '        byteNumbers[i] = byteCharacters.charCodeAt(i);' +
+    '      }' +
+    '      var byteArray = new Uint8Array(byteNumbers);' +
+    '      var blob = new Blob([byteArray], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});' +
+    '      var url = URL.createObjectURL(blob);' +
+    '      var a = document.createElement("a");' +
+    '      a.href = url;' +
+    '      a.download = result.filename;' +
+    '      document.body.appendChild(a);' +
+    '      a.click();' +
+    '      document.body.removeChild(a);' +
+    '      URL.revokeObjectURL(url);' +
+    '    }' +
     '  }).downloadReportFile(month);' +
     '}' +
     '</script>';
@@ -298,16 +314,18 @@ function downloadReportFile(month) {
     // Export as Excel
     var fileName = (month !== '' ? month : 'Report') + '_supernova_invoice.xlsx';
     var blob = tempSpreadsheet.getBlob().setContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    blob.setName(fileName);
     
-    // Create file in Drive
-    var file = DriveApp.createFile(blob);
+    // Convert blob to base64
+    var base64Data = Utilities.base64Encode(blob.getBytes());
     
     // Delete temporary spreadsheet
     DriveApp.getFileById(tempSpreadsheet.getId()).setTrashed(true);
     
-    // Return download URL (force download)
-    return 'https://drive.google.com/uc?export=download&id=' + file.getId();
+    // Return base64 data and filename for client-side download
+    return {
+      data: base64Data,
+      filename: fileName
+    };
     
   } catch (error) {
     SpreadsheetApp.getUi().alert('Error creating report: ' + error.toString());

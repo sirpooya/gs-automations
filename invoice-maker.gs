@@ -22,9 +22,10 @@ function showInvoice() {
   var devCol = headers.indexOf('Dev');
   var collabCol = headers.indexOf('Collab');
   var teamCol = headers.indexOf('Team');
+  var nameCol = headers.indexOf('Name');
   var costCol = headers.indexOf('Cost');
   
-  if (fullCol === -1 || devCol === -1 || collabCol === -1 || teamCol === -1 || costCol === -1) {
+  if (fullCol === -1 || devCol === -1 || collabCol === -1 || teamCol === -1 || nameCol === -1 || costCol === -1) {
     SpreadsheetApp.getUi().alert('Required columns not found!');
     return;
   }
@@ -62,7 +63,7 @@ function showInvoice() {
   for (var i = 0; i < team_count; i++) {
     var rowIndex = i + 2; // row i+3 is index i+2 (since row 1 is index 0)
     if (rowIndex < data.length) {
-      team_name[i] = data[rowIndex][teamCol];
+      team_name[i] = data[rowIndex][nameCol];
       count_full[i] = data[rowIndex][fullCol];
       count_dev[i] = data[rowIndex][devCol];
       count_collab[i] = data[rowIndex][collabCol];
@@ -142,7 +143,7 @@ function showInvoice() {
   
   // Show modal dialog
   SpreadsheetApp.getUi().showModalDialog(
-    HtmlService.createHtmlOutput('<div style="font-family: Arial, sans-serif; padding: 20px; white-space: pre-wrap; direction: rtl; text-align: right;">' + invoiceText + '</div>')
+    HtmlService.createHtmlOutput('<div style="font-family: Vazirmatn, sans-serif; padding: 20px; white-space: pre-wrap; direction: rtl; text-align: right;">' + invoiceText + '</div>')
       .setWidth(600)
       .setHeight(400),
     'Invoice'

@@ -265,6 +265,26 @@ function showInvoice() {
 
 function downloadReportFile(month) {
   try {
+    // Get prices from Report sheet
+    var reportSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Report');
+    var price_full = 0;
+    var price_dev = 0;
+    var price_collab = 0;
+    
+    if (reportSheet) {
+      var reportData = reportSheet.getDataRange().getValues();
+      var reportHeaders = reportData[0];
+      var fullCol = reportHeaders.indexOf('Full');
+      var devCol = reportHeaders.indexOf('Dev');
+      var collabCol = reportHeaders.indexOf('Collab');
+      
+      if (fullCol !== -1 && devCol !== -1 && collabCol !== -1) {
+        price_full = reportData[1][fullCol] || 0;
+        price_dev = reportData[1][devCol] || 0;
+        price_collab = reportData[1][collabCol] || 0;
+      }
+    }
+    
     var paidUsersSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Paid Users');
     
     if (!paidUsersSheet) {
@@ -292,34 +312,123 @@ function downloadReportFile(month) {
       columnIndices.push(colIndex);
     }
     
-    // Create filtered data with only selected columns
+    // Find Seat column index for filtering and manipulation
+    var seatColIndex = headers.indexOf('Seat');
+    if (seatColIndex === -1) {
+      SpreadsheetApp.getUi().alert('Column "Seat" not found!');
+      return null;
+    }
+    
+    // Find Seat column index in filtered columns (for manipulation)
+    var seatColIndexInFiltered = columnsToInclude.indexOf('Seat');
+    
+    // Filter data: only rows where Seat is not empty, and only selected columns
     var filteredData = [];
     filteredData.push(columnsToInclude); // Header row
     
     for (var i = 1; i < data.length; i++) {
-      var row = [];
-      for (var j = 0; j < columnIndices.length; j++) {
-        row.push(data[i][columnIndices[j]]);
+      // Check if Seat column is not empty
+      var seatValue = data[i][seatColIndex];
+      if (seatValue !== null && seatValue !== undefined && seatValue !== '') {
+        // Add row with only selected columns
+        var row = [];
+        for (var j = 0; j < columnIndices.length; j++) {
+          var cellValue = data[i][columnIndices[j]];
+          
+          // Manipulate Seat column value using regex
+          if (j === seatColIndexInFiltered) {
+            var seatStr = String(cellValue);
+            
+            // Match and replace patterns using regex (allowing optional spaces)
+            // Full 🔵🟢🟣🟠 → Full $price_full
+            if (/Full\s*🔵\s*🟢\s*🟣\s*🟠/.test(seatStr) || /Full.*🔵.*🟢.*🟣.*🟠/.test(seatStr)) {
+              cellValue = 'Full $' + price_full;
+            } 
+            // Dev 🟢🟣🟠 → Dev $price_dev
+            else if (/Dev\s*🟢\s*🟣\s*🟠/.test(seatStr) || /Dev.*🟢.*🟣.*🟠/.test(seatStr)) {
+              cellValue = 'Dev $' + price_dev;
+            } 
+            // Collab 🟣🟠 → Collab $price_collab
+            else if (/Collab\s*🟣\s*🟠/.test(seatStr) || /Collab.*🟣.*🟠/.test(seatStr)) {
+              cellValue = 'Collab $' + price_collab;
+            }
+          }
+          
+          row.push(cellValue);
+        }
+        filteredData.push(row);
       }
-      filteredData.push(row);
+    }
+    
+    if (filteredData.length === 1) {
+      SpreadsheetApp.getUi().alert('No rows found with non-empty Seat values!');
+      return null;
     }
     
     // Create temporary spreadsheet
     var tempSpreadsheet = SpreadsheetApp.create('Temp_' + new Date().getTime());
     var tempSheet = tempSpreadsheet.getActiveSheet();
+    var tempSpreadsheetId = tempSpreadsheet.getId();
+    var tempSheetId = tempSheet.getSheetId();
     
     // Write filtered data
     tempSheet.getRange(1, 1, filteredData.length, columnsToInclude.length).setValues(filteredData);
     
-    // Export as Excel
+    // Force all pending changes to be applied before exporting
+    SpreadsheetApp.flush();
+    
+    // Verify data was written (read back to confirm)
+    var verifyData = tempSheet.getDataRange().getValues();
+    if (verifyData.length === 0 || verifyData[0].length === 0) {
+      DriveApp.getFileById(tempSpreadsheetId).setTrashed(true);
+      throw new Error('Data was not written to temporary spreadsheet');
+    }
+    
+    // Small delay to ensure spreadsheet is ready for export
+    Utilities.sleep(1000);
+    
+    // Export as Excel using export URL
     var fileName = (month !== '' ? month : 'Report') + '_supernova_invoice.xlsx';
-    var blob = tempSpreadsheet.getBlob().setContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    // Try exporting the entire spreadsheet first (more reliable)
+    var exportUrl = 'https://docs.google.com/spreadsheets/d/' + tempSpreadsheetId + '/export?format=xlsx';
+    
+    // Fetch the exported file with proper authentication
+    var token = ScriptApp.getOAuthToken();
+    var response = UrlFetchApp.fetch(exportUrl, {
+      muteHttpExceptions: true,
+      method: 'get',
+      headers: {
+        'Authorization': 'Bearer ' + token
+      }
+    });
+    
+    // Check if export was successful
+    if (response.getResponseCode() !== 200) {
+      // Try with gid parameter as fallback
+      exportUrl = 'https://docs.google.com/spreadsheets/d/' + tempSpreadsheetId + '/export?format=xlsx&gid=' + tempSheetId;
+      response = UrlFetchApp.fetch(exportUrl, {
+        muteHttpExceptions: true,
+        method: 'get',
+        headers: {
+          'Authorization': 'Bearer ' + token
+        }
+      });
+      
+      if (response.getResponseCode() !== 200) {
+        DriveApp.getFileById(tempSpreadsheetId).setTrashed(true);
+        throw new Error('Failed to export spreadsheet. Response code: ' + response.getResponseCode() + ', Content: ' + response.getContentText().substring(0, 200));
+      }
+    }
+    
+    // Get the blob from response
+    var blob = response.getBlob();
+    blob.setName(fileName);
     
     // Convert blob to base64
     var base64Data = Utilities.base64Encode(blob.getBytes());
     
     // Delete temporary spreadsheet
-    DriveApp.getFileById(tempSpreadsheet.getId()).setTrashed(true);
+    DriveApp.getFileById(tempSpreadsheetId).setTrashed(true);
     
     // Return base64 data and filename for client-side download
     return {

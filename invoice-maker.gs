@@ -224,12 +224,94 @@ function showInvoice() {
     invoiceText += 'مجموعا <span dir="ltr">$' + cost_subtotal + '</span> بعلاوه <span dir="ltr">$' + cost_prorated + '</span> هزینه سرشکن ماه قبل، مبلغ نهایی <span dir="ltr">$' + cost_total + '</span>';
   }
   
-  // Show modal dialog
+  // Show modal dialog with download button
+  var htmlContent = '<div style="font-family: Vazirmatn, sans-serif; padding: 20px; white-space: pre-wrap; direction: rtl; text-align: right;">' + 
+    invoiceText + 
+    '</div>' +
+    '<div style="padding: 20px; text-align: center;">' +
+    '<button onclick="downloadReport(\'' + month + '\')" style="padding: 10px 20px; font-size: 14px; cursor: pointer; background-color: #4285f4; color: white; border: none; border-radius: 4px;">Download Report</button>' +
+    '</div>' +
+    '<script>' +
+    'function downloadReport(month) {' +
+    '  google.script.run.withSuccessHandler(function(url) {' +
+    '    if (url) { window.open(url, "_blank"); }' +
+    '  }).downloadReportFile(month);' +
+    '}' +
+    '</script>';
+  
   SpreadsheetApp.getUi().showModalDialog(
-    HtmlService.createHtmlOutput('<div style="font-family: Vazirmatn, sans-serif; padding: 20px; white-space: pre-wrap; direction: rtl; text-align: right;">' + invoiceText + '</div>')
+    HtmlService.createHtmlOutput(htmlContent)
       .setWidth(600)
-      .setHeight(400),
+      .setHeight(450),
     'Invoice'
   );
+}
+
+function downloadReportFile(month) {
+  try {
+    var paidUsersSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Paid Users');
+    
+    if (!paidUsersSheet) {
+      SpreadsheetApp.getUi().alert('Sheet "Paid Users" not found!');
+      return null;
+    }
+    
+    var data = paidUsersSheet.getDataRange().getValues();
+    if (data.length === 0) {
+      SpreadsheetApp.getUi().alert('No data found in "Paid Users" sheet!');
+      return null;
+    }
+    
+    var headers = data[0];
+    var columnsToInclude = ['Name', 'Email', 'DK Email', 'Team', 'Department', 'Seat'];
+    var columnIndices = [];
+    
+    // Find column indices
+    for (var i = 0; i < columnsToInclude.length; i++) {
+      var colIndex = headers.indexOf(columnsToInclude[i]);
+      if (colIndex === -1) {
+        SpreadsheetApp.getUi().alert('Column "' + columnsToInclude[i] + '" not found!');
+        return null;
+      }
+      columnIndices.push(colIndex);
+    }
+    
+    // Create filtered data with only selected columns
+    var filteredData = [];
+    filteredData.push(columnsToInclude); // Header row
+    
+    for (var i = 1; i < data.length; i++) {
+      var row = [];
+      for (var j = 0; j < columnIndices.length; j++) {
+        row.push(data[i][columnIndices[j]]);
+      }
+      filteredData.push(row);
+    }
+    
+    // Create temporary spreadsheet
+    var tempSpreadsheet = SpreadsheetApp.create('Temp_' + new Date().getTime());
+    var tempSheet = tempSpreadsheet.getActiveSheet();
+    
+    // Write filtered data
+    tempSheet.getRange(1, 1, filteredData.length, columnsToInclude.length).setValues(filteredData);
+    
+    // Export as Excel
+    var fileName = (month !== '' ? month : 'Report') + '_supernova_invoice.xlsx';
+    var blob = tempSpreadsheet.getBlob().setContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    blob.setName(fileName);
+    
+    // Create file in Drive
+    var file = DriveApp.createFile(blob);
+    
+    // Delete temporary spreadsheet
+    DriveApp.getFileById(tempSpreadsheet.getId()).setTrashed(true);
+    
+    // Return download URL (force download)
+    return 'https://drive.google.com/uc?export=download&id=' + file.getId();
+    
+  } catch (error) {
+    SpreadsheetApp.getUi().alert('Error creating report: ' + error.toString());
+    return null;
+  }
 }
 

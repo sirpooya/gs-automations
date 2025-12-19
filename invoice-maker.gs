@@ -56,6 +56,28 @@ function showInvoice() {
             break;
           }
         }
+        
+        // Write next month data to Payments sheet
+        var periodCol = paymentsHeaders.indexOf('Period');
+        var statusCol = paymentsHeaders.indexOf('Status');
+        
+        if (month !== '') {
+          var nextRowIndex = lastRow + 1; // Next row (0-indexed)
+          var nextRowNumber = nextRowIndex + 1; // Convert to 1-indexed for setValue
+          
+          // Set Month column
+          paymentsSheet.getRange(nextRowNumber, monthCol + 1).setValue(month);
+          
+          // Set Period column if it exists
+          if (periodCol !== -1) {
+            paymentsSheet.getRange(nextRowNumber, periodCol + 1).setValue(periodStart + ' - ' + periodEnd);
+          }
+          
+          // Set Status column if it exists
+          if (statusCol !== -1) {
+            paymentsSheet.getRange(nextRowNumber, statusCol + 1).setValue('🔵 Upcoming');
+          }
+        }
       }
     }
   }
@@ -163,7 +185,7 @@ function showInvoice() {
   
   // Add subscription details at the beginning if month data is available
   if (month !== '') {
-    invoiceText += 'جزئیات اشتراک فیگما فاکتور ماه ' + month + ' (از ' + periodStart + ' تا ' + periodEnd + ') به شرح زیر است:\n\n';
+    invoiceText += 'جزئیات اشتراک فیگما فاکتور ماه ' + month + ' (از ' + periodStart + ' تا ' + periodEnd + ') به شرح زیر است:\n';
   }
   
   invoiceText += 'قیمت هر سیت: فول (<span dir="ltr">$' + price_full + '</span>) — دولوپر (<span dir="ltr">$' + price_dev + '</span>) — کلب (<span dir="ltr">$' + price_collab + '</span>)\n\n';

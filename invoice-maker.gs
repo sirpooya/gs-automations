@@ -106,11 +106,29 @@ function showInvoice() {
   // Build invoice text
   var invoiceText = 'قیمت هر سیت: فول (' + price_full + ') — دولوپر (' + price_dev + ') — کلب (' + price_collab + ')\n\n';
   
-  // Add team information (only if all counts are non-zero)
+  // Add team information (skip if all counts are zero, otherwise print only non-zero counts)
   for (var i = 0; i < team_name.length; i++) {
-    if (count_full[i] != 0 && count_dev[i] != 0 && count_collab[i] != 0) {
-      invoiceText += 'تیم ' + team_name[i] + ' : ' + count_full[i] + ' فول - ' + count_dev[i] + ' دولوپر - ' + count_collab[i] + ' کلب\n';
+    // Skip if all three counts are zero
+    if (count_full[i] == 0 && count_dev[i] == 0 && count_collab[i] == 0) {
+      continue;
     }
+    
+    // Build team line with only non-zero counts
+    var teamLine = 'تیم ' + team_name[i] + ' : ';
+    var parts = [];
+    
+    if (count_full[i] > 0) {
+      parts.push(count_full[i] + ' فول');
+    }
+    if (count_dev[i] > 0) {
+      parts.push(count_dev[i] + ' دولوپر');
+    }
+    if (count_collab[i] > 0) {
+      parts.push(count_collab[i] + ' کلب');
+    }
+    
+    teamLine += parts.join(' - ');
+    invoiceText += teamLine + '\n';
   }
   
   invoiceText += '\nکل سیت‌ها: ' + totalcount_full + ' فول - ' + totalcount_dev + ' دولوپر - ' + totalcount_collab + ' کلب\n\n';
